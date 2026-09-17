@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HitClub Tài Xỉu Analyzer</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#10151c;color:#fff}
+.wrap{max-width:720px;margin:auto;padding:16px}.card{background:#1a222d;border:1px solid #303b49;border-radius:16px;padding:16px;margin:12px 0}
+h1{font-size:24px;margin:4px 0 6px}.sub{color:#9eabb9;font-size:14px}
+input,button{font-size:16px;border-radius:10px;padding:12px;border:1px solid #445264}
+input{background:#0f141b;color:#fff;width:100%}button{background:#273445;color:#fff;cursor:pointer;margin:4px 2px}
+button.primary{background:#1769aa}.dice{display:flex;gap:8px}.dice input{width:33%;text-align:center}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.stat{background:#111821;border-radius:12px;padding:12px;text-align:center}.num{font-size:24px;font-weight:bold}
+.chain{word-break:break-all;line-height:1.9}.t{color:#ffb84d}.x{color:#62b0ff}.db{color:#ff6b6b}
+table{width:100%;border-collapse:collapse}td,th{padding:8px;border-bottom:1px solid #303b49;text-align:center}
+.small{font-size:13px;color:#9eabb9}.danger{background:#652d36}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="card">
+<h1>🎲 HitClub Tài Xỉu Analyzer</h1>
+<div class="sub">Nhập kết quả để thống kê lịch sử. Công cụ không đảm bảo dự đoán kết quả tiếp theo.</div>
+</div>
+
+<div class="card">
+<h3>Nhập 3 xúc xắc</h3>
+<div class="dice">
+<input id="d1" type="number" min="1" max="6" placeholder="1">
+<input id="d2" type="number" min="1" max="6" placeholder="2">
+<input id="d3" type="number" min="1" max="6" placeholder="3">
+</div>
+<button class="primary" onclick="addDice()">➕ Thêm phiên</button>
+</div>
+
+<div class="card">
+<h3>Nhập nhanh chuỗi tổng điểm</h3>
+<input id="bulk" placeholder="Ví dụ: 10, 5, 9, 13, 16, 8">
+<button onclick="addBulk()">Thêm chuỗi</button>
+</div>
+
+<div class="card">
+<h3>Thống kê</h3>
+<div class="grid">
+<div class="stat"><div class="small">Tổng phiên</div><div class="num" id="n">0</div></div>
+<div class="stat"><div class="small">Tài</div><div class="num t" id="tai">0</div></div>
+<div class="stat"><div class="small">Xỉu</div><div class="num x" id="xiu">0</div></div>
+</div>
+<p id="pct" class="small"></p>
+</div>
+
+<div class="card">
+<h3>Chuỗi gần nhất</h3>
+<div id="chain" class="chain">Chưa có dữ liệu</div>
+<p id="streak" class="small"></p>
+</div>
+
+<div class="card">
+<h3>Lịch sử</h3>
+<table><thead><tr><th>#</th><th>Tổng</th><th>Kết quả</th><th></th></tr></thead>
+<tbody id="hist"></tbody></table>
+</div>
+
+<div class="card">
+<button onclick="undo()">↩️ Xóa phiên cuối</button>
+<button onclick="exportData()">⬇️ Xuất JSON</button>
+<button onclick="document.getElementById('file').click()">⬆️ Nhập JSON</button>
+<input id="file" type="file" accept=".json" style="display:none" onchange="importData(event)">
+<button class="danger" onclick="clearAll()">🗑️ Xóa tất cả</button>
+</div>
+</div>
+
+<script>
+let data=JSON.parse(localStorage.getItem('hc_data')||'[]');
+function cls(v){return v===3||v===18?'ĐB':v>=11?'Tài':'Xỉu'}
+function save(){localStorage.setItem('hc_data',JSON.stringify(data));render()}
+function addDice(){
+ let a=['d1','d2','d3'].map(id=>+document.getElementById(id).value);
+ if(a.some(v=>v<1||v>6)){alert('Nhập đủ 3 xúc xắc từ 1 đến 6');return}
+ data.push({dice:a,total:a[0]+a[1]+a[2],time:new Date().toLocaleString('vi-VN')});
+ ['d1','d2','d3'].forEach(id=>document.getElementById(id).value='');save()
+}
+function addBulk(){
+ let s=document.getElementById('bulk').value.trim();
+ let arr=s.split(/[,\\s]+/).map(Number).filter(v=>Number.isFinite(v)&&v>=3&&v<=18);
+ if(!arr.length){alert('Hãy nhập các tổng điểm từ 3 đến 18');return}
+ arr.forEach(v=>data.push({total:v,time:new Date().toLocaleString('vi-VN')}));document.getElementById('bulk').value='';save()
+}
+function addOne(i){data.splice(i,1);save()}
+function undo(){if(data.length){data.pop();save()}}
+function clearAll(){if(confirm('Xóa toàn bộ lịch sử?')){data=[];save()}}
+function exportData(){
+ let blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+ let a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='hitclub-history.json';a.click()
+}
+function importData(e){
+ let f=e.target.files[0];if(!f)return;let r=new FileReader();
+ r.onload=()=>{try{let x=JSON.parse(r.result);if(!Array.isArray(x))throw 0;data=x;save()}catch{alert('File JSON không hợp lệ')}}
+ r.readAsText(f)
+}
+function render(){
+ let n=data.length,t=data.filter(x=>x.total>=11&&x.total<=17).length,x=n-t-data.filter(x=>x.total===3||x.total===18).length,db=n-t-x;
+ document.getElementById('n').textContent=n;document.getElementById('tai').textContent=t;document.getElementById('xiu').textContent=x;
+ document.getElementById('pct').textContent=n?`Tài ${((t/n)*100).toFixed(1)}% · Xỉu ${((x/n)*100).toFixed(1)}% · ĐB ${db}`:'';
+ let last=data.slice(-30), chain=last.map(o=>o.total===3||o.total===18?'ĐB':o.total>=11?'T':'X');
+ document.getElementById('chain').innerHTML=chain.map(c=>`<b class="${c==='T'?'t':c==='X'?'x':'db'}">${c}</b>`).join(' · ')||'Chưa có dữ liệu';
+ let cur=chain.at(-1),run=0;for(let i=chain.length-1;i>=0&&chain[i]===cur;i--)run++;
+ document.getElementById('streak').textContent=cur?`Chuỗi hiện tại: ${cur} × ${run}`:'';
+ document.getElementById('hist').innerHTML=data.slice().reverse().slice(0,50).map((o,j)=>{
+  let v=o.total,c=cls(v);return `<tr><td>${data.length-j}</td><td>${v}</td><td class="${c==='Tài'?'t':c==='Xỉu'?'x':'db'}">${c}</td><td><button onclick="addOne(${data.length-1-j})">X</button></td></tr>`
+ }).join('')||'<tr><td colspan="4">Chưa có dữ liệu</td></tr>'
+}
+render();
+</script>
+</body>
+  </html>
